@@ -87,6 +87,11 @@ export type InsightOverview = {
   weekly_summary_status?: string;
   monthly_summary: string;
   monthly_summary_status?: string;
+  review_portal: {
+    kicker: string;
+    title: string;
+    paragraphs: string[];
+  };
   latest_drafts: Array<{
     entry_id: string;
     title: string;

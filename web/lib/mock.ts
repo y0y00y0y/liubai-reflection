@@ -116,6 +116,14 @@ export const mockInsightOverview: InsightOverview = {
   ],
   weekly_summary: "这一周更多在处理开始困难和关系期待。",
   monthly_summary: "这一月的记录里，成长和关系是最稳定的两条线索。",
+  review_portal: {
+    kicker: "最近这一段",
+    title: "这段时间，关系和成长似乎反复浮现。",
+    paragraphs: [
+      "有些期待正在被慢慢看见，也有一些行动的阻力还停在原地。",
+      "先不急着总结完整，我们只把这些线索放在这里看看。",
+    ],
+  },
   latest_drafts: [
     {
       entry_id: "1",
@@ -196,4 +204,3 @@ export const mockTableRowDetail: TableRowDetail = {
     { key: "event_summary", label: "事件概述", value: "使命感会议后更清楚自己的价值观。" },
   ],
 };
-

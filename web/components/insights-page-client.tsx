@@ -77,6 +77,14 @@ export function InsightsPageClient() {
       ? Array.from(new Set(portalKeywordLabels.filter(Boolean)))
       : ["记录", "疲惫", "关系", "身体", "稳定", "被理解"]
   ).slice(0, 8);
+  const portalCopy = overview?.review_portal ?? {
+    kicker: "最近这一段",
+    title: "这段时间，你似乎一直在努力稳住自己。",
+    paragraphs: [
+      "有些事情反复占据注意力，也有一些珍视的东西正在慢慢变清楚。",
+      "先不急着总结完整。我们只把它们放在这里看看。",
+    ],
+  };
   const recentTraces =
     overview?.recent_traces?.length
       ? overview.recent_traces
@@ -162,10 +170,11 @@ export function InsightsPageClient() {
             </div>
 
             <section className="review-portal-copy">
-              <p className="review-kicker">最近这一段</p>
-              <h1>这段时间，你似乎一直在努力稳住自己。</h1>
-              <p>有些事情反复占据注意力，也有一些珍视的东西正在慢慢变清楚。</p>
-              <p>先不急着总结完整。我们只把它们放在这里看看。</p>
+              <p className="review-kicker">{portalCopy.kicker}</p>
+              <h1>{portalCopy.title}</h1>
+              {portalCopy.paragraphs.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
             </section>
 
             <button className="review-continue" onClick={() => scrollToDetail()} type="button">

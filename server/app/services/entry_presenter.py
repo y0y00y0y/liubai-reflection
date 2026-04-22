@@ -1,9 +1,10 @@
 from collections import Counter
 from datetime import date, datetime, timedelta
+from typing import Any
 
 from app.models import AiDraft, JournalEntry, TableRow
 from app.schemas import DashboardData, DayDetail, EntryListItem, InsightOverview, TableRowListItem
-from app.services.llm_client import generate_text, is_llm_configured
+from app.services.llm_client import generate_json, generate_text, is_llm_configured
 
 EMOTION_META = {
     "happy": "开心",
@@ -21,6 +22,15 @@ WEATHER_META = {
     "cloudy": "阴天",
     "windy": "刮风",
     "snowy": "下雪",
+}
+
+DEFAULT_REVIEW_PORTAL_COPY = {
+    "kicker": "最近这一段",
+    "title": "这段时间，你似乎一直在努力稳住自己。",
+    "paragraphs": [
+        "有些事情反复占据注意力，也有一些珍视的东西正在慢慢变清楚。",
+        "先不急着总结完整。我们只把它们放在这里看看。",
+    ],
 }
 
 
@@ -182,6 +192,84 @@ def generate_ai_summary(entries: list[JournalEntry], period: str, top_keywords: 
         return f"最近一月出现最多的情绪是 {top_emotion or '复杂'}。"
 
 
+def normalize_review_portal_copy(value: Any) -> dict:
+    if not isinstance(value, dict):
+        return DEFAULT_REVIEW_PORTAL_COPY
+
+    kicker = str(value.get("kicker") or "最近这一段").strip()[:16] or "最近这一段"
+    title = str(value.get("title") or "").strip()
+    raw_paragraphs = value.get("paragraphs")
+    paragraphs = [str(item).strip() for item in raw_paragraphs if str(item).strip()] if isinstance(raw_paragraphs, list) else []
+
+    if not title:
+        return DEFAULT_REVIEW_PORTAL_COPY
+
+    return {
+        "kicker": kicker,
+        "title": title[:42],
+        "paragraphs": [item[:72] for item in paragraphs[:2]] or DEFAULT_REVIEW_PORTAL_COPY["paragraphs"],
+    }
+
+
+def fallback_review_portal_copy(entries: list[JournalEntry], top_keywords: list[str], top_emotion: str) -> dict:
+    if len(entries) < 3:
+        return DEFAULT_REVIEW_PORTAL_COPY
+    keyword_text = "、".join(top_keywords[:2]) if top_keywords else "一些反复出现的事情"
+    return {
+        "kicker": "最近这一段",
+        "title": f"这段时间，{keyword_text}似乎正在反复浮现。",
+        "paragraphs": [
+            "它们不一定需要马上被解释清楚，也许只是提醒你：有些感受正在请求被看见。",
+            f"最近的情绪底色偏向{top_emotion or '复杂'}。先不急着总结完整，我们只把这些线索放在这里看看。",
+        ],
+    }
+
+
+def generate_review_portal_copy(
+    entries: list[JournalEntry],
+    top_keywords: list[str],
+    top_emotion: str,
+    previous_copy: dict | None = None,
+) -> dict:
+    if len(entries) < 3:
+        return DEFAULT_REVIEW_PORTAL_COPY
+    if not is_llm_configured():
+        if previous_copy:
+            return normalize_review_portal_copy(previous_copy)
+        return fallback_review_portal_copy(entries, top_keywords, top_emotion)
+
+    recent = entries[:12]
+    excerpts = "\n".join(f"- {entry.content[:100]}" for entry in recent if entry.content)
+    prompt = f"""以下是用户最近的一些记录片段：
+{excerpts}
+
+请为“回顾页入口”生成一段很短的开场文案。它会出现在用户进入回顾页的第一屏。
+
+要求：
+- 像专业教练一样温和、克制、具体。
+- 让用户有“最近这一段被轻轻看见”的感觉。
+- 不诊断，不评价，不说“你的问题是”。
+- 不要提到 AI、系统、数据、分析。
+- 不要过度断言，用“似乎”“有些”“也许”等留白表达。
+- 返回 JSON，格式为：
+{{
+  "kicker": "最近这一段",
+  "title": "不超过 32 个中文字符的一句话",
+  "paragraphs": ["第一句，不超过 60 个中文字符", "第二句，不超过 60 个中文字符"]
+}}
+"""
+    try:
+        payload = generate_json(
+            "你是一位专业、温和、边界清晰的自我觉察教练，只写克制的回顾入口文案。",
+            prompt,
+        )
+        return normalize_review_portal_copy(payload)
+    except Exception:
+        if previous_copy:
+            return normalize_review_portal_copy(previous_copy)
+        return fallback_review_portal_copy(entries, top_keywords, top_emotion)
+
+
 def _clip_text(value: str, limit: int = 96) -> str:
     text = " ".join(value.split())
     if len(text) <= limit:
@@ -232,6 +320,7 @@ def build_insight_overview(
     monthly_summary: str | None = None,
     weekly_summary_status: str = "fresh",
     monthly_summary_status: str = "fresh",
+    review_portal: dict | None = None,
 ) -> InsightOverview:
     keyword_counter = Counter()
     emotion_counter = Counter()
@@ -282,6 +371,7 @@ def build_insight_overview(
         weekly_summary_status=weekly_summary_status,
         monthly_summary=monthly_summary or generate_ai_summary(entries, "monthly", top_keywords, top_emotion),
         monthly_summary_status=monthly_summary_status,
+        review_portal=normalize_review_portal_copy(review_portal or DEFAULT_REVIEW_PORTAL_COPY),
         latest_drafts=latest_drafts,
         recent_traces=build_recent_traces(entries, table_rows),
     )

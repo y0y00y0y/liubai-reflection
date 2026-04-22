@@ -139,6 +139,12 @@ class DayDetail(BaseModel):
     summary_text: str
 
 
+class ReviewPortalCopy(BaseModel):
+    kicker: str = "最近这一段"
+    title: str
+    paragraphs: list[str]
+
+
 class InsightOverview(BaseModel):
     top_keywords: list[str]
     keyword_breakdown: list[dict]
@@ -150,6 +156,7 @@ class InsightOverview(BaseModel):
     weekly_summary_status: str = "fresh"
     monthly_summary: str
     monthly_summary_status: str = "fresh"
+    review_portal: ReviewPortalCopy
     latest_drafts: list[dict]
     recent_traces: list[dict] = Field(default_factory=list)
 

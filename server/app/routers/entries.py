@@ -1,3 +1,4 @@
+import json
 from collections import Counter
 from datetime import date, datetime, timedelta
 
@@ -33,6 +34,8 @@ from app.services.entry_presenter import (
     build_insight_overview,
     extract_keywords,
     generate_ai_summary,
+    generate_review_portal_copy,
+    normalize_review_portal_copy,
     label_for_emotion,
     label_for_weather,
     serialize_entry_list_item,
@@ -42,6 +45,9 @@ from app.services.table_ai import extract_table_fields
 from app.services.table_templates import get_table_templates
 
 router = APIRouter(prefix="/api", tags=["entries"])
+PORTAL_MIN_ENTRIES = 3
+PORTAL_REFRESH_ENTRY_COUNT = 5
+PORTAL_REFRESH_DAYS = 4
 
 
 def query_entries_for_user(db: Session, user_id: str) -> list[JournalEntry]:
@@ -444,6 +450,74 @@ def entries_in_period(entries: list[JournalEntry], period_start: date, period_en
     ]
 
 
+def parse_portal_cache(snapshot: WeeklySnapshot) -> dict | None:
+    if not snapshot.summary_text_user:
+        return None
+    try:
+        payload = json.loads(snapshot.summary_text_user)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def parse_cache_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def as_naive_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone().replace(tzinfo=None)
+
+
+def count_entries_after(entries: list[JournalEntry], generated_at: datetime | None) -> int:
+    if generated_at is None:
+        return len(entries)
+    return sum(1 for entry in entries if entry.created_at and as_naive_datetime(entry.created_at) > generated_at)
+
+
+def should_refresh_portal_copy(entries: list[JournalEntry], cache: dict | None, *, force: bool = False) -> bool:
+    if len(entries) < PORTAL_MIN_ENTRIES:
+        return cache is None
+    if force or cache is None:
+        return True
+
+    generated_at = parse_cache_datetime(str(cache.get("generated_at") or ""))
+    new_entries = count_entries_after(entries, generated_at)
+    if new_entries >= PORTAL_REFRESH_ENTRY_COUNT:
+        return True
+    if generated_at and new_entries >= 1 and datetime.utcnow() - generated_at >= timedelta(days=PORTAL_REFRESH_DAYS):
+        return True
+    return False
+
+
+def get_or_refresh_portal_copy(snapshot: WeeklySnapshot, entries: list[JournalEntry], *, force: bool = False) -> dict:
+    cache = parse_portal_cache(snapshot)
+    previous_copy = normalize_review_portal_copy(cache.get("copy") if cache else None) if cache else None
+    if not should_refresh_portal_copy(entries, cache, force=force):
+        return normalize_review_portal_copy(previous_copy)
+
+    top_keywords, top_emotion = summarize_period_inputs(entries)
+    copy = generate_review_portal_copy(entries, top_keywords, top_emotion, previous_copy)
+    generated_at = datetime.utcnow()
+    latest_entry_at = entries[0].created_at.isoformat() if entries and entries[0].created_at else None
+    snapshot.summary_text_user = json.dumps(
+        {
+            "copy": copy,
+            "generated_at": generated_at.isoformat(),
+            "entry_count": len(entries),
+            "latest_entry_at": latest_entry_at,
+        },
+        ensure_ascii=False,
+    )
+    return copy
+
+
 def get_or_create_weekly_snapshot(
     db: Session,
     current_user: User,
@@ -521,6 +595,7 @@ def insights_overview(
     entries = query_entries_for_user(db, current_user.id)
     weekly_snapshot = get_or_create_weekly_snapshot(db, current_user, entries)
     monthly_snapshot = get_or_create_monthly_snapshot(db, current_user, entries)
+    review_portal = get_or_refresh_portal_copy(weekly_snapshot, entries)
     db.commit()
     return build_insight_overview(
         entries,
@@ -529,6 +604,7 @@ def insights_overview(
         monthly_summary=monthly_snapshot.summary_text_ai,
         weekly_summary_status=weekly_snapshot.status,
         monthly_summary_status=monthly_snapshot.status,
+        review_portal=review_portal,
     )
 
 
@@ -547,6 +623,7 @@ def regenerate_insights_overview(
     entries = query_entries_for_user(db, current_user.id)
     weekly_snapshot = get_or_create_weekly_snapshot(db, current_user, entries, force=True)
     monthly_snapshot = get_or_create_monthly_snapshot(db, current_user, entries, force=True)
+    review_portal = get_or_refresh_portal_copy(weekly_snapshot, entries, force=True)
     db.commit()
     return build_insight_overview(
         entries,
@@ -555,6 +632,7 @@ def regenerate_insights_overview(
         monthly_summary=monthly_snapshot.summary_text_ai,
         weekly_summary_status=weekly_snapshot.status,
         monthly_summary_status=monthly_snapshot.status,
+        review_portal=review_portal,
     )
 
 
