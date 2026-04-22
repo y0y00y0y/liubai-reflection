@@ -19,6 +19,10 @@
 - 保存一段不想马上解释的感受
 - 在很累的时候，只留下几个关键词
 
+
+https://github.com/user-attachments/assets/9d48d0eb-902d-458e-be17-212bb57becdb
+
+
 ### 看见
 
 当某件事让你卡住、委屈、困惑或反复想起，可以用“看见”慢慢拆开。
@@ -33,6 +37,11 @@
 
 你不需要回答得完整。写到哪里，都已经足够。
 
+
+https://github.com/user-attachments/assets/d5e28045-dcc0-4d09-a273-6d22f1b77e27
+
+
+
 ### 回顾
 
 当你想看看最近这一段，可以进入回顾页。
@@ -46,6 +55,12 @@
 - 最近留下的痕迹
 
 回顾不是给你评分，也不是替你总结人生。它只是帮助你看见：这段时间，你其实正在经历什么。
+
+
+
+https://github.com/user-attachments/assets/bd89625d-56a1-4795-9800-fb72ce4ec7da
+
+
 
 ## AI 在这里做什么
 
