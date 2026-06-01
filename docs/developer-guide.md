@@ -41,11 +41,6 @@
 ### 启动后端
 
 ```powershell
-cd server
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -e .
-copy .env.example .env
 uvicorn app.main:app --reload
 ```
 
@@ -66,9 +61,6 @@ http://127.0.0.1:8000/health
 请使用 Node 20 LTS。
 
 ```powershell
-cd web
-npm.cmd install
-copy .env.local.example .env.local
 npm.cmd run dev
 ```
 
@@ -82,36 +74,7 @@ http://localhost:3000
 
 后端 `server/.env`：
 
-```env
-APP_NAME=留白 API
-APP_ENV=development
-SECRET_KEY=replace-me
-DATABASE_URL=sqlite:///./reflection.db
-
-LLM_PROVIDER=auto
-
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4.1-mini
-
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
-
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=
-
-ACCESS_TOKEN_EXPIRE_MINUTES=10080
-PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=30
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-```
-
 前端 `web/.env.local`：
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-```
-
-不要把 OpenAI、Gemini 或其他模型 API Key 放进前端环境变量。
 
 ## 使用 PostgreSQL
 
@@ -130,29 +93,5 @@ DATABASE_URL=postgresql+psycopg://liubai:liubai@localhost:5432/liubai
 当前版本使用 SQLAlchemy `create_all` 建表。正式上线前建议引入 Alembic 管理迁移。
 
 ## LLM 配置
-
-OpenAI：
-
-```env
-LLM_PROVIDER=openai
-OPENAI_API_KEY=your_openai_key
-OPENAI_MODEL=gpt-4.1-mini
-```
-
-Gemini：
-
-```env
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your_gemini_key
-GEMINI_MODEL=gemini-2.5-flash
-```
-
-Ollama：
-
-```env
-LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=qwen2.5:7b
-```
 
 如果不配置任何模型，产品仍可运行，只是 AI 输出会回退到本地规则。
