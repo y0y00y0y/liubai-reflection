@@ -24,9 +24,9 @@ function getPasswordError(password: string) {
   return "";
 }
 
-export function AuthPageClient() {
+export function AuthPageClient({ initialMode = "login" }: { initialMode?: AuthMode }) {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
